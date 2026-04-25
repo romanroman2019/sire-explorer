@@ -170,6 +170,16 @@ export default function App() {
     fetchContent();
   }, [selectedChapter]);
 
+  // Scroll to top whenever a new item is selected to view details
+  useEffect(() => {
+    if (selectedItem) {
+      window.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+      });
+    }
+  }, [selectedItem]);
+
   const renderListView = () => (
     <div className="p-8 font-['Inter']">
       <div className="mb-10">
