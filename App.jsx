@@ -81,7 +81,6 @@ export default function App() {
   const [selectedItem, setSelectedItem] = useState(null); 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [indexMissing, setIndexMissing] = useState(false);
 
   useEffect(() => {
     const link = document.createElement('link');
@@ -124,37 +123,46 @@ export default function App() {
       try {
         setLoading(true);
         setError(null);
-        setIndexMissing(false);
+
+        // Fetch the raw data for the selected chapter
         const q = query(
           collection(db, COLLECTION_NAME),
-          where('Chapter', '==', selectedChapter),
-          orderBy('Full2Sec', 'asc')
+          where('Chapter', '==', selectedChapter)
         );
+        
         const querySnapshot = await getDocs(q);
         const results = [];
         querySnapshot.forEach((doc) => {
           results.push({ id: doc.id, ...doc.data() });
         });
+
+        // Perform client-side multi-level numeric sorting based on Level3Number
+        results.sort((a, b) => {
+          const getLevel3Part = (level3Str, index) => {
+            if (!level3Str) return 0;
+            const parts = String(level3Str).split('.');
+            return parts.length > index ? (parseFloat(parts[index]) || 0) : 0;
+          };
+
+          // Primary Sort: Second digit of Level3Number (Subchapter)
+          const subA = getLevel3Part(a.Level3Number, 1);
+          const subB = getLevel3Part(b.Level3Number, 1);
+          
+          if (subA !== subB) {
+            return subA - subB;
+          }
+
+          // Secondary Sort: Third digit of Level3Number (Sequence within subchapter)
+          const seqA = getLevel3Part(a.Level3Number, 2);
+          const seqB = getLevel3Part(b.Level3Number, 2);
+          
+          return seqA - seqB;
+        });
+
         setContent(results);
       } catch (err) {
-        if (err.code === 'failed-precondition' || (err.message && err.message.includes("requires an index"))) {
-          setIndexMissing(true);
-          try {
-            const qFallback = query(collection(db, COLLECTION_NAME));
-            const snapshot = await getDocs(qFallback);
-            const filtered = [];
-            snapshot.forEach(doc => {
-              const data = doc.data();
-              if (data.Chapter === selectedChapter) filtered.push({ id: doc.id, ...data });
-            });
-            filtered.sort((a, b) => String(a.Full2Sec || "").localeCompare(String(b.Full2Sec || ""), undefined, { numeric: true }));
-            setContent(filtered);
-          } catch (fallbackErr) {
-            setError("Could not load data. Check index status.");
-          }
-        } else {
-          setError("An unexpected error occurred.");
-        }
+        console.error("Fetch Error:", err);
+        setError("An error occurred while fetching content.");
       } finally {
         setLoading(false);
       }
@@ -185,7 +193,7 @@ export default function App() {
           <div key={item.id} className="group p-10 border-2 border-slate-100 rounded-[2.5rem] bg-white shadow-sm hover:shadow-2xl hover:border-emerald-300 transition-all duration-500">
             <div className="flex items-center space-x-5 mb-6">
               <span className="px-4 py-1.5 rounded-lg text-xs font-bold bg-emerald-100 text-emerald-900 border border-emerald-200 font-['Roboto_Mono'] tracking-tight">
-                ID_{item.IDold}
+                ID_{item.ID || item.IDold}
               </span>
               {item.Full2Sec && <span className="px-4 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200 font-['Roboto_Mono'] tracking-tight">POS_{item.Full2Sec}</span>}
             </div>
@@ -227,7 +235,7 @@ export default function App() {
       <div className="bg-slate-950 rounded-[3rem] p-12 mb-16 text-white shadow-2xl relative overflow-hidden ring-1 ring-white/10">
         <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/10 rounded-full -mr-32 -mt-32 blur-[100px]"></div>
         <div className="flex flex-wrap gap-4 mb-10 relative z-10">
-          <span className="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-500/20 backdrop-blur-xl text-emerald-300 border border-emerald-500/30 font-['Roboto_Mono']">RECORD_ID: {selectedItem.IDold}</span>
+          <span className="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-500/20 backdrop-blur-xl text-emerald-300 border border-emerald-500/30 font-['Roboto_Mono']">RECORD_ID: {selectedItem.ID || selectedItem.IDold}</span>
           <span className="px-4 py-2 rounded-xl text-xs font-bold bg-white/10 backdrop-blur-xl text-white border border-white/20 font-['Roboto_Mono'] uppercase tracking-[0.2em]">{selectedItem.Chapter}</span>
         </div>
         <h2 className="text-5xl font-black leading-[1.1] tracking-tighter relative z-10 max-w-4xl">{selectedItem.Shortquestion}</h2>
@@ -292,7 +300,7 @@ export default function App() {
               onClick={() => setSelectedItem(null)} 
               className="bg-slate-100 hover:bg-slate-900 hover:text-white p-4 rounded-3xl transition-all border border-slate-200 shadow-sm"
             >
-              <svg className="h-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={4} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
