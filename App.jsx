@@ -92,7 +92,7 @@ export default function App() {
     const fetchChapters = async () => {
       try {
         setLoading(true);
-        const q = query(collection(db, COLLECTION_NAME), orderBy('IDold', 'asc'));
+        const q = query(collection(db, COLLECTION_NAME), orderBy('ID', 'asc'));
         const querySnapshot = await getDocs(q);
         const uniqueChapters = [];
         const seen = new Set();
