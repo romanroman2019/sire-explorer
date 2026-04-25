@@ -10,13 +10,23 @@ import {
 } from 'firebase/firestore';
 
 // --- CONFIGURATION ---
+// We use a safe check for import.meta.env to prevent build errors in legacy environments.
+// When deployed to Vercel/Vite, these will correctly pull from your environment variables.
+const getEnv = (key) => {
+  try {
+    return import.meta.env[key];
+  } catch (e) {
+    return "";
+  }
+};
+
 const firebaseConfig = {
-  apiKey: "AIzaSyB2LRoHyvyMR7YhX7pKOOhMtBdlc3nwkj0",
-  authDomain: "my-sire2.firebaseapp.com",
-  projectId: "my-sire2",
-  storageBucket: "my-sire2.firebasestorage.app",
-  messagingSenderId: "630273310341",
-  appId: "1:630273310341:web:4c398761c44ce86dd273ec"
+  apiKey: getEnv('VITE_FIREBASE_API_KEY'),
+  authDomain: getEnv('VITE_FIREBASE_AUTH_DOMAIN'),
+  projectId: getEnv('VITE_FIREBASE_PROJECT_ID'),
+  storageBucket: getEnv('VITE_FIREBASE_STORAGE_BUCKET'),
+  messagingSenderId: getEnv('VITE_FIREBASE_MESSAGING_SENDER_ID'),
+  appId: getEnv('VITE_FIREBASE_APP_ID')
 };
 
 // --- CUSTOMIZATION: Predefined order and Informative Labels ---
@@ -65,8 +75,9 @@ const formatInLineStyles = (text) => {
   });
 };
 
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+// Initialize Firebase only if the API key is present
+const app = firebaseConfig.apiKey ? initializeApp(firebaseConfig) : null;
+const db = app ? getFirestore(app) : null;
 const COLLECTION_NAME = "sire_collection";
 
 export default function App() {
@@ -79,6 +90,12 @@ export default function App() {
   const [indexMissing, setIndexMissing] = useState(false);
 
   useEffect(() => {
+    if (!db) {
+      setError("Firebase Configuration Missing. Please set your environment variables.");
+      setLoading(false);
+      return;
+    }
+
     const fetchChapters = async () => {
       try {
         setLoading(true);
@@ -94,8 +111,10 @@ export default function App() {
           }
         });
         setChapters(uniqueChapters);
+        setError(null);
       } catch (err) {
-        setError("Failed to load chapters.");
+        console.error(err);
+        setError("Failed to load chapters. Check your Firestore rules or credentials.");
       } finally {
         setLoading(false);
       }
@@ -104,7 +123,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!selectedChapter) {
+    if (!selectedChapter || !db) {
       setContent([]);
       return;
     }
@@ -165,6 +184,12 @@ export default function App() {
       </div>
 
       {loading && <div className="text-center py-12 text-emerald-600 animate-pulse font-medium">Syncing with database...</div>}
+      
+      {error && (
+        <div className="p-4 mb-6 bg-red-50 border-l-4 border-red-500 rounded text-red-700 text-sm">
+          {error}
+        </div>
+      )}
 
       <div className="space-y-6">
         {content.map((item) => (
