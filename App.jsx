@@ -198,7 +198,7 @@ export default function App() {
             </div>
             
             {item.Subchapter && (
-              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-[0.3em] mb-2 px-1 font-['Roboto_Mono'] opacity-60">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 px-1 font-['Roboto_Mono']">
                 {item.Subchapter}
               </p>
             )}
