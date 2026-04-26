@@ -12,20 +12,20 @@ import {
 // --- CONFIGURATION ---
 const getEnv = (key) => {
   try {
-    return import.meta.env[key];
+    return import.meta.env[key] || "";
   } catch (e) {
     return "";
   }
 };
 
-// Hardcoded fallback for the preview environment
+// Secure configuration relying ONLY on environment variables
 const firebaseConfig = {
-  apiKey: getEnv('VITE_FIREBASE_API_KEY') || "AIzaSyB2LRoHyvyMR7YhX7pKOOhMtBdlc3nwkj0",
-  authDomain: getEnv('VITE_FIREBASE_AUTH_DOMAIN') || "my-sire2.firebaseapp.com",
-  projectId: getEnv('VITE_FIREBASE_PROJECT_ID') || "my-sire2",
-  storageBucket: getEnv('VITE_FIREBASE_STORAGE_BUCKET') || "my-sire2.firebasestorage.app",
-  messagingSenderId: getEnv('VITE_FIREBASE_MESSAGING_SENDER_ID') || "630273310341",
-  appId: getEnv('VITE_FIREBASE_APP_ID') || "1:630273310341:web:4c398761c44ce86dd273ec"
+  apiKey: getEnv('VITE_FIREBASE_API_KEY'),
+  authDomain: getEnv('VITE_FIREBASE_AUTH_DOMAIN'),
+  projectId: getEnv('VITE_FIREBASE_PROJECT_ID'),
+  storageBucket: getEnv('VITE_FIREBASE_STORAGE_BUCKET'),
+  messagingSenderId: getEnv('VITE_FIREBASE_MESSAGING_SENDER_ID'),
+  appId: getEnv('VITE_FIREBASE_APP_ID')
 };
 
 const METADATA_MAPPING = [
@@ -70,8 +70,9 @@ const formatInLineStyles = (text) => {
   });
 };
 
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+// Initialize Firebase safely only if the API key is present
+const app = firebaseConfig.apiKey ? initializeApp(firebaseConfig) : null;
+const db = app ? getFirestore(app) : null;
 const COLLECTION_NAME = "sire_collection";
 
 export default function App() {
@@ -88,6 +89,12 @@ export default function App() {
     link.rel = 'stylesheet';
     document.head.appendChild(link);
     
+    if (!db) {
+      setError("Firebase Configuration Missing. Please ensure your .env file is set up and variables are configured in Vercel.");
+      setLoading(false);
+      return;
+    }
+
     const fetchChapters = async () => {
       try {
         setLoading(true);
@@ -115,7 +122,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!selectedChapter) {
+    if (!selectedChapter || !db) {
       setContent([]);
       return;
     }
@@ -189,15 +196,22 @@ export default function App() {
         <select 
           value={selectedChapter}
           onChange={(e) => setSelectedChapter(e.target.value)}
-          className="block w-full px-4 sm:px-6 py-4 sm:py-5 bg-slate-50 border border-slate-300 rounded-xl sm:rounded-2xl focus:ring-4 focus:ring-emerald-500/20 transition appearance-none cursor-pointer text-slate-900 font-bold text-base sm:text-lg shadow-sm outline-none"
+          disabled={!db}
+          className="block w-full px-4 sm:px-6 py-4 sm:py-5 bg-slate-50 border border-slate-300 rounded-xl sm:rounded-2xl focus:ring-4 focus:ring-emerald-500/20 transition appearance-none cursor-pointer text-slate-900 font-bold text-base sm:text-lg shadow-sm outline-none disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <option value="">-- Choose Chapter --</option>
           {chapters.map((chap, idx) => <option key={idx} value={chap}>{chap}</option>)}
         </select>
       </div>
 
-      {loading && <div className="text-center py-12 sm:py-24 text-emerald-800 animate-pulse font-bold font-['Roboto_Mono'] text-xs sm:text-sm uppercase tracking-widest">Initialising Secure Sync...</div>}
+      {loading && db && <div className="text-center py-12 sm:py-24 text-emerald-800 animate-pulse font-bold font-['Roboto_Mono'] text-xs sm:text-sm uppercase tracking-widest">Initialising Secure Sync...</div>}
       
+      {error && (
+        <div className="p-6 mb-10 bg-rose-50 border-2 border-rose-200 rounded-[2rem] text-rose-800 text-sm font-['Inter'] leading-relaxed font-bold shadow-sm">
+          ⚠️ {error}
+        </div>
+      )}
+
       <div className="space-y-6 sm:space-y-10">
         {content.map((item) => (
           <div key={item.id} className="group p-6 sm:p-10 border-2 border-slate-100 rounded-3xl sm:rounded-[2.5rem] bg-white shadow-sm hover:shadow-2xl hover:border-emerald-300 transition-all duration-500">
