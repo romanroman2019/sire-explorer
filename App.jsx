@@ -6,7 +6,9 @@ import {
   query, 
   getDocs, 
   orderBy, 
-  where 
+  where,
+  doc,
+  getDoc
 } from 'firebase/firestore';
 
 // --- CONFIGURATION ---
@@ -98,19 +100,17 @@ export default function App() {
     const fetchChapters = async () => {
       try {
         setLoading(true);
-        const q = query(collection(db, COLLECTION_NAME), orderBy('IDold', 'asc'));
-        const querySnapshot = await getDocs(q);
-        const uniqueChapters = [];
-        const seen = new Set();
-        querySnapshot.forEach((doc) => {
-          const data = doc.data();
-          if (data.Chapter && !seen.has(data.Chapter)) {
-            seen.add(data.Chapter);
-            uniqueChapters.push(data.Chapter);
-          }
-        });
-        setChapters(uniqueChapters);
-        setError(null);
+        
+        // Fetch chapters efficiently from the single metadata document (1 read instead of 500+)
+        const docRef = doc(db, 'metadata', 'app_config');
+        const docSnap = await getDoc(docRef);
+        
+        if (docSnap.exists() && docSnap.data().chapters) {
+          setChapters(docSnap.data().chapters);
+          setError(null);
+        } else {
+          setError("Chapter configuration document not found in Firestore.");
+        }
       } catch (err) {
         console.error("Firebase Error:", err);
         setError("Failed to connect to data source.");
