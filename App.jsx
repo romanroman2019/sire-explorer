@@ -369,8 +369,15 @@ export default function App() {
         </div>
         {selectedItem ? renderDetailView() : renderListView()}
       </div>
-      <footer className="max-w-6xl mx-auto mt-8 sm:mt-16 text-center mb-8 sm:mb-0">
-        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em] sm:tracking-[0.6em] font-['Roboto_Mono']">Enterprise Data Portal // Version 2.4.1</p>
+      <footer className="max-w-6xl mx-auto mt-8 sm:mt-16 flex justify-center items-center mb-8 sm:mb-0">
+        <div className="flex items-center text-slate-400 hover:text-slate-600 transition-colors duration-300 cursor-default">
+          <svg className="w-4 h-4 sm:w-5 sm:h-5 mr-2 sm:mr-3 text-emerald-600/80" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+          </svg>
+          <p className="text-[10px] font-black uppercase tracking-[0.2em] sm:tracking-[0.4em] font-['Roboto_Mono']">
+            &copy; 2026 Sleepwalk Solutions LLC
+          </p>
+        </div>
       </footer>
     </div>
   );
