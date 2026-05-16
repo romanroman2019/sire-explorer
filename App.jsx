@@ -20,7 +20,6 @@ const getEnv = (key) => {
   }
 };
 
-// Secure configuration relying ONLY on environment variables
 const firebaseConfig = {
   apiKey: getEnv('VITE_FIREBASE_API_KEY'),
   authDomain: getEnv('VITE_FIREBASE_AUTH_DOMAIN'),
@@ -72,7 +71,6 @@ const formatInLineStyles = (text) => {
   });
 };
 
-// Initialize Firebase safely only if the API key is present
 const app = firebaseConfig.apiKey ? initializeApp(firebaseConfig) : null;
 const db = app ? getFirestore(app) : null;
 const COLLECTION_NAME = "sire_collection";
@@ -80,6 +78,7 @@ const COLLECTION_NAME = "sire_collection";
 export default function App() {
   const [chapters, setChapters] = useState([]);
   const [selectedChapter, setSelectedChapter] = useState('');
+  const [selectedQuestionType, setSelectedQuestionType] = useState('');
   const [content, setContent] = useState([]);
   const [selectedItem, setSelectedItem] = useState(null); 
   const [loading, setLoading] = useState(true);
@@ -100,8 +99,6 @@ export default function App() {
     const fetchChapters = async () => {
       try {
         setLoading(true);
-        
-        // Fetch chapters efficiently from the single metadata document (1 read instead of 500+)
         const docRef = doc(db, 'metadata', 'app_config');
         const docSnap = await getDoc(docRef);
         
@@ -124,12 +121,14 @@ export default function App() {
   useEffect(() => {
     if (!selectedChapter || !db) {
       setContent([]);
+      setSelectedQuestionType('');
       return;
     }
     const fetchContent = async () => {
       try {
         setLoading(true);
         setError(null);
+        setSelectedQuestionType(''); // Reset filter when chapter changes
 
         // Fetch the raw data for the selected chapter
         const q = query(
@@ -151,7 +150,6 @@ export default function App() {
             return parts.length > index ? (parseFloat(parts[index]) || 0) : 0;
           };
 
-          // Primary Sort: Second digit of Level3Number (Subchapter)
           const subA = getLevel3Part(a.Level3Number, 1);
           const subB = getLevel3Part(b.Level3Number, 1);
           
@@ -159,7 +157,6 @@ export default function App() {
             return subA - subB;
           }
 
-          // Secondary Sort: Third digit of Level3Number (Sequence within subchapter)
           const seqA = getLevel3Part(a.Level3Number, 2);
           const seqB = getLevel3Part(b.Level3Number, 2);
           
@@ -177,7 +174,7 @@ export default function App() {
     fetchContent();
   }, [selectedChapter]);
 
-  // Scroll to top whenever a new item is selected to view details
+  // Scroll to top whenever a new item is selected
   useEffect(() => {
     if (selectedItem) {
       window.scrollTo({
@@ -187,21 +184,51 @@ export default function App() {
     }
   }, [selectedItem]);
 
+  // Derived state for Question Types
+  const availableQuestionTypes = Array.from(
+    new Set(content.map(item => item['Question Type'] || item.QuestionType).filter(Boolean))
+  ).sort();
+
+  // Filter the content to display based on selected Question Type
+  const displayedContent = content.filter(item => {
+    if (!selectedQuestionType) return true;
+    const type = item['Question Type'] || item.QuestionType;
+    return type === selectedQuestionType;
+  });
+
   const renderListView = () => (
     <div className="p-4 sm:p-8 font-['Inter']">
-      <div className="mb-8 sm:mb-10">
-        <label className="block text-xs font-bold text-slate-600 mb-2 uppercase tracking-[0.2em] font-['Roboto_Mono']">
-          Chapter Selection
-        </label>
-        <select 
-          value={selectedChapter}
-          onChange={(e) => setSelectedChapter(e.target.value)}
-          disabled={!db}
-          className="block w-full px-4 sm:px-6 py-4 sm:py-5 bg-slate-50 border border-slate-300 rounded-xl sm:rounded-2xl focus:ring-4 focus:ring-emerald-500/20 transition appearance-none cursor-pointer text-slate-900 font-bold text-base sm:text-lg shadow-sm outline-none disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <option value="">-- Choose Chapter --</option>
-          {chapters.map((chap, idx) => <option key={idx} value={chap}>{chap}</option>)}
-        </select>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8 sm:mb-10">
+        <div>
+          <label className="block text-xs font-bold text-slate-600 mb-2 uppercase tracking-[0.2em] font-['Roboto_Mono']">
+            Chapter Selection
+          </label>
+          <select 
+            value={selectedChapter}
+            onChange={(e) => setSelectedChapter(e.target.value)}
+            disabled={!db}
+            className="block w-full px-4 sm:px-6 py-4 sm:py-5 bg-slate-50 border border-slate-300 rounded-xl sm:rounded-2xl focus:ring-4 focus:ring-emerald-500/20 transition appearance-none cursor-pointer text-slate-900 font-bold text-base sm:text-lg shadow-sm outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <option value="">-- Choose Chapter --</option>
+            {chapters.map((chap, idx) => <option key={idx} value={chap}>{chap}</option>)}
+          </select>
+        </div>
+
+        {availableQuestionTypes.length > 0 && (
+          <div>
+            <label className="block text-xs font-bold text-slate-600 mb-2 uppercase tracking-[0.2em] font-['Roboto_Mono']">
+              Question Type Filter
+            </label>
+            <select 
+              value={selectedQuestionType}
+              onChange={(e) => setSelectedQuestionType(e.target.value)}
+              className="block w-full px-4 sm:px-6 py-4 sm:py-5 bg-slate-50 border border-slate-300 rounded-xl sm:rounded-2xl focus:ring-4 focus:ring-emerald-500/20 transition appearance-none cursor-pointer text-slate-900 font-bold text-base sm:text-lg shadow-sm outline-none"
+            >
+              <option value="">-- All Types --</option>
+              {availableQuestionTypes.map((type, idx) => <option key={idx} value={type}>{type}</option>)}
+            </select>
+          </div>
+        )}
       </div>
 
       {loading && db && <div className="text-center py-12 sm:py-24 text-emerald-800 animate-pulse font-bold font-['Roboto_Mono'] text-xs sm:text-sm uppercase tracking-widest">Initialising Secure Sync...</div>}
@@ -213,13 +240,18 @@ export default function App() {
       )}
 
       <div className="space-y-6 sm:space-y-10">
-        {content.map((item) => (
+        {displayedContent.map((item) => (
           <div key={item.id} className="group p-6 sm:p-10 border-2 border-slate-100 rounded-3xl sm:rounded-[2.5rem] bg-white shadow-sm hover:shadow-2xl hover:border-emerald-300 transition-all duration-500">
             <div className="flex flex-wrap items-center gap-3 sm:gap-5 mb-4 sm:mb-6">
               <span className="px-3 sm:px-4 py-1.5 rounded-lg text-[10px] sm:text-xs font-bold bg-emerald-100 text-emerald-900 border border-emerald-200 font-['Roboto_Mono'] tracking-tight">
                 ID_{item.ID || item.IDold}
               </span>
               {item.Full2Sec && <span className="px-3 sm:px-4 py-1.5 rounded-lg text-[10px] sm:text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200 font-['Roboto_Mono'] tracking-tight">POS_{item.Full2Sec}</span>}
+              {(item['Question Type'] || item.QuestionType) && (
+                <span className="px-3 sm:px-4 py-1.5 rounded-lg text-[10px] sm:text-xs font-bold bg-amber-100 text-amber-900 border border-amber-200 font-['Roboto_Mono'] tracking-tight">
+                  {item['Question Type'] || item.QuestionType}
+                </span>
+              )}
             </div>
             
             {item.Subchapter && (
@@ -242,6 +274,11 @@ export default function App() {
             )}
           </div>
         ))}
+        {!loading && displayedContent.length === 0 && content.length > 0 && (
+          <div className="text-center py-12 text-slate-400 font-bold font-['Roboto_Mono']">
+            No items match the selected filter.
+          </div>
+        )}
       </div>
     </div>
   );
